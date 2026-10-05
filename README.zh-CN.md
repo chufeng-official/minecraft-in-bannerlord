@@ -2,7 +2,7 @@
 
 一个在《骑马与砍杀：霸主》（Mount & Blade II: Bannerlord）单人自定义战斗中，添加**可建造、可碰撞、可干净清理**动态方块的概念验证。它是 [`TECHNICAL_PLAN.md`](TECHNICAL_PLAN.md) 的 M0/M1 里程碑：先证明宿主能稳定承载动态方块，再考虑 Minecraft 接入。
 
-本仓库只包含源码。**不是** Minecraft 移植，没有网络桥接，不修改原版游戏文件，也不改动用户存档。
+本仓库只包含源码。**不是** Minecraft 移植；新增可选 M2 本机模拟桥接，不修改原版游戏文件，也不改动用户存档。
 
 ## 当前状态
 
@@ -11,6 +11,10 @@
 已实测确认：模块加载、动态显示、玩家/投射物碰撞、选择与删除、离场清理、骑乘与 AI 表现、无碰撞放置预览。
 
 不作承诺：大规模性能、动态寻路导航、在任意原版表面上建造、战役持久化、Minecraft 接入。
+
+M2 模拟服务桥接核心已实测通过：正常建造、断线保护、服务重启后自动同步、恢复后操作及退出清理；未测试的异常路径和性能不作承诺。默认仍为 M1 单机模式。启用方式、协议限制与测试记录见 [docs/M2.md](docs/M2.md)。
+
+M3-A 石头权威核心已实测：真实方块双向同步、宿主删除、两端清理及 MC 正常退出/重新进入后的断线恢复。背包尚未接入，不代表整个 M3 完成；非空快照恢复等未测边界见 [docs/M3.md](docs/M3.md)。
 
 ## 功能
 
@@ -80,6 +84,7 @@ pwsh -File tools/Remove.ps1 -ConfirmRemoval
 
 ```powershell
 dotnet run --project tests/Diagnostics/Diagnostics.csproj -c Release
+dotnet run --project tests/Bridge/Bridge.csproj -c Release
 pwsh -File tools/AuditSource.ps1
 ```
 

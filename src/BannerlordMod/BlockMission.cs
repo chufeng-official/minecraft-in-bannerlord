@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using BannerlordBlocks.Bridge;
 using TaleWorlds.Core;
 using TaleWorlds.Engine;
 using TaleWorlds.InputSystem;
@@ -23,10 +24,29 @@ namespace BannerlordBlocks
         private bool previewEnabled = true, previewFailed;
         private float previewElapsed;
         private const float Reach = 8f;
+        private BridgeClient bridge;
+        private Replica replica;
+        private readonly string bridgeSession = Guid.NewGuid().ToString("N");
+        private readonly Dictionary<string, GameEntity> mirrored = new Dictionary<string, GameEntity>();
+        private readonly Queue<Message> mirrorWork = new Queue<Message>();
+        private string pendingRequest;
+        private DateTime pendingSince;
+        private bool bridgeConfigured;
+        private bool BridgeReady { get { return replica != null && replica.Ready && mirrorWork.Count == 0 && pendingRequest == null; } }
 
         public override void OnMissionTick(float dt)
         {
             if (ended || failed) return;
+            // Drain network data even while the battle is paused or the player is unavailable.
+            try { PumpBridge(); }
+            catch (Exception ex)
+            {
+                failed = true; diagnostics.Errors++;
+                Log.Write("Bridge application failed: " + ex);
+                bridge?.Dispose(); Clear();
+                Notice("桥接状态应用失败，已停用本场景；请查看日志。");
+                return;
+            }
             if (Mission.Mode != MissionMode.Battle || Mission.MainAgent == null)
             {
                 HidePreview();
@@ -51,7 +71,8 @@ namespace BannerlordBlocks
                         return;
                     }
                     Log.Write("Ready: Insert place at aimed terrain/block face; reach=" + Reach + "; no block count cap; Prefab=" + prefab);
-                    Notice("建造已就绪：Ins 放置，Ctrl+Ins 开关预览；绿=可放，红=不可放；PgUp 选择，Del 删除。测试 " + diagnostics.Id);
+                    ConfigureBridge();
+                    Notice((bridgeConfigured ? "桥接模式：等待同步；" : "建造已就绪：") + "Ins 放置，Ctrl+Ins 开关预览；绿=可放，红=不可放；PgUp 选择，Del 删除。测试 " + diagnostics.Id);
                 }
                 if (Input.IsKeyPressed(InputKey.Insert))
                 {
@@ -73,16 +94,22 @@ namespace BannerlordBlocks
                     if (selected == null) Notice("尚未选中方块：请对准方块按 PgUp。");
                     else
                     {
-                        GameEntity removing = selected;
-                        SetSelection(null);
-                        removing.Remove(0);
-                        blocks.Remove(removing);
-                        diagnostics.Deleted++;
-                        Log.Write("Deleted; session=" + diagnostics.Id + "; count=" + blocks.Count);
-                        Notice("已删除方块，剩余 " + blocks.Count);
+                        if (bridgeConfigured)
+                        {
+                            if (RequireBridge())
+                            {
+                                BoundingBox bounds = selected.GetGlobalBoundingBox();
+                                SendRequest("BreakBlockRequest", ToCell((bounds.min + bounds.max) * 0.5f));
+                            }
+                        }
+                        else RemoveBlock(selected);
                     }
                 }
-                if (Input.IsKeyPressed(InputKey.PageDown)) { Clear(); Notice("方块已清空。"); }
+                if (Input.IsKeyPressed(InputKey.PageDown))
+                {
+                    if (bridgeConfigured) { if (RequireBridge()) SendRequest("ClearRequest", null); }
+                    else { Clear(); Notice("方块已清空。"); }
+                }
                 UpdatePreview(dt);
             }
             catch (Exception ex)
@@ -91,17 +118,25 @@ namespace BannerlordBlocks
                 diagnostics.Errors++;
                 Log.Write("Disabled after engine error: " + ex);
                 Notice("方块原型：发生错误，已停用本场景操作，请查看日志。");
+                bridge?.Dispose();
                 Clear();
             }
         }
 
         private void Place()
         {
+            if (bridgeConfigured && !RequireBridge()) return;
             Agent player = Mission.MainAgent;
             Vec3 target;
             if (!TryPlacementTarget(player, out target)) return;
             if (!ValidatePlacementTarget(target, true)) return;
-            CreateBlock(target);
+            if (bridgeConfigured)
+            {
+                // Establish a fixed scene origin before serializing integer cells.
+                if (!gridBaseHeight.HasValue) gridBaseHeight = target.z - 0.5f;
+                SendRequest("PlaceBlockRequest", ToCell(target));
+            }
+            else CreateBlock(target);
         }
 
         private bool ValidatePlacementTarget(Vec3 target, bool feedback)
@@ -248,6 +283,8 @@ namespace BannerlordBlocks
                 " 次；选中=" + (selected != null) + "；网格基准=" +
                 (gridBaseHeight.HasValue ? gridBaseHeight.Value.ToString("F3") : "未建立"));
             Log.Write("Preview status: enabled=" + previewEnabled + "; failed=" + previewFailed + "; session=" + diagnostics.Id);
+            if (bridgeConfigured) Notice("M2 桥接：" + (BridgeReady ? "已同步" : "断线/同步中/等待确认") +
+                "；序号=" + (replica == null ? 0 : replica.Sequence));
             if (selected != null) LogPhysics(selected, "Selected block");
         }
 
@@ -336,7 +373,7 @@ namespace BannerlordBlocks
                 Vec3 target;
                 bool allowed = TryPlacementTarget(Mission.MainAgent, out target, false);
                 if (!Finite(target.x) || !Finite(target.y) || !Finite(target.z)) { preview.Hide(); return; }
-                allowed = allowed && ValidatePlacementTarget(target, false);
+                allowed = allowed && ValidatePlacementTarget(target, false) && (!bridgeConfigured || BridgeReady);
                 preview.Show(Mission.Scene, target, allowed);
             }
             catch (Exception ex)
@@ -364,6 +401,8 @@ namespace BannerlordBlocks
         private void Finish(string reason)
         {
             ended = true;
+            bridge?.Dispose();
+            mirrorWork.Clear(); mirrored.Clear();
             Clear();
             if (!summaryWritten)
             {
@@ -374,5 +413,117 @@ namespace BannerlordBlocks
 
         protected override void OnEndMission() { Finish("mission end"); }
         public override void OnRemoveBehavior() { Finish("behavior removed"); }
+
+        private void ConfigureBridge()
+        {
+            string path = System.IO.Path.Combine(Log.DirectoryPath, "bridge-port.txt");
+            if (!File.Exists(path)) return; // Existing M1 remains the default.
+            bridgeConfigured = true;
+            int port;
+            if (!int.TryParse(File.ReadAllText(path).Trim(), out port) || port < 1024 || port > 65535)
+            { Notice("bridge-port.txt 无效；本场景禁止建造，不回退到本地权威。"); return; }
+            replica = new Replica(bridgeSession, Mission.SceneName);
+            bridge = new BridgeClient(bridgeSession, Mission.SceneName, port);
+            Log.Write("M2 bridge enabled; session=" + bridgeSession + "; port=" + port);
+            Notice("M2 桥接已启用，正在连接本机模拟服务。");
+        }
+
+        private bool RequireBridge()
+        {
+            if (BridgeReady) return true;
+            Notice("桥接未就绪或正在等待确认，暂不能修改方块。"); return false;
+        }
+
+        private Cell ToCell(Vec3 target)
+        {
+            return new Cell { X = (int)Math.Floor(target.x), Y = (int)Math.Floor(target.y),
+                Z = (int)Math.Round(target.z - 0.5f - gridBaseHeight.Value) };
+        }
+
+        private void SendRequest(string type, Cell cell)
+        {
+            var message = Message.For(type, bridgeSession, Mission.SceneName);
+            message.Request = Guid.NewGuid().ToString("N"); message.Cell = cell; message.BaseHeight = gridBaseHeight;
+            if (!bridge.Send(message)) { Notice("桥接发送队列已满，请稍后再试。"); return; }
+            pendingRequest = message.Request; pendingSince = DateTime.UtcNow;
+            Log.Write("M2 request: " + type + "; request=" + pendingRequest);
+        }
+
+        private void PumpBridge()
+        {
+            if (bridge == null) return;
+            BridgeEvent item;
+            for (int i = 0; i < 16 && bridge.TryRead(out item); i++)
+            {
+                if (item.Status != null)
+                {
+                    replica.Disconnect(); pendingRequest = null;
+                    // Retain the last mirror, but do not apply queued work until a fresh snapshot arrives.
+                    mirrorWork.Clear();
+                    Log.Write("M2 " + item.Status + "; session=" + bridgeSession);
+                    Notice("M2 桥接断线，暂停建造；将自动重连并同步。");
+                    continue;
+                }
+                Message message = item.Message;
+                if (message.Session != bridgeSession || message.Scene != Mission.SceneName) continue;
+                if (message.Type == "Result" && message.Request == pendingRequest)
+                {
+                    pendingRequest = null;
+                    if (message.Error != null) Notice("模拟服务拒绝请求：" + message.Error);
+                }
+                if (message.Type != "Snapshot" && message.Type != "BlockDelta") continue;
+                bool wasReady = replica.Ready;
+                if (!replica.Apply(message))
+                {
+                    if (wasReady && !replica.Ready) RequestSnapshot();
+                    continue;
+                }
+                // Adopt the authority's origin even when the first restored change is a delta.
+                gridBaseHeight = replica.BaseHeight.HasValue ? (float?)replica.BaseHeight.Value : null;
+                if (message.Type == "Snapshot")
+                {
+                    mirrorWork.Clear(); pendingRequest = null;
+                    foreach (string key in mirrored.Keys)
+                        mirrorWork.Enqueue(new Message { Type = "RemoveMirror", Request = key });
+                    foreach (Cell cell in replica.Blocks.Values)
+                        mirrorWork.Enqueue(new Message { Type = "AddMirror", Cell = cell, BaseHeight = replica.BaseHeight, Present = true });
+                    Log.Write("M2 snapshot; sequence=" + replica.Sequence + "; blocks=" + replica.Blocks.Count);
+                }
+                else mirrorWork.Enqueue(message);
+            }
+            if (pendingRequest != null && (DateTime.UtcNow - pendingSince).TotalSeconds > 5)
+            { pendingRequest = null; RequestSnapshot(); }
+            // A per-frame engine work budget; network threads never create/remove entities.
+            DateTime start = DateTime.UtcNow;
+            for (int i = 0; replica.Ready && i < 32 && mirrorWork.Count > 0; i++)
+            {
+                Message work = mirrorWork.Dequeue();
+                string key = work.Type == "RemoveMirror" ? work.Request : work.Cell.Key;
+                GameEntity entity;
+                if (mirrored.TryGetValue(key, out entity))
+                { RemoveBlock(entity); mirrored.Remove(key); }
+                if (work.Present)
+                {
+                    Cell cell = work.Cell;
+                    Vec3 position = new Vec3(cell.X + 0.5f, cell.Y + 0.5f, (float)work.BaseHeight.Value + cell.Z + 0.5f);
+                    CreateBlock(position); mirrored.Add(key, blocks[blocks.Count - 1]);
+                }
+                if ((DateTime.UtcNow - start).TotalMilliseconds >= 4) break;
+            }
+        }
+
+        private void RequestSnapshot()
+        {
+            replica.Disconnect(); mirrorWork.Clear();
+            if (!bridge.Send(Message.For("SnapshotRequest", bridgeSession, Mission.SceneName)))
+            { bridge.Dispose(); failed = true; Notice("桥接重同步请求失败，已停用本场景。"); }
+        }
+
+        private void RemoveBlock(GameEntity entity)
+        {
+            if (selected == entity) SetSelection(null);
+            entity.Remove(0); blocks.Remove(entity); diagnostics.Deleted++;
+            Log.Write("Deleted; session=" + diagnostics.Id + "; count=" + blocks.Count);
+        }
     }
 }

@@ -33,7 +33,7 @@ foreach ($relative in $paths) {
     }
     $path = Join-Path $root $relative
     if (!(Test-Path -LiteralPath $path -PathType Leaf)) { continue }
-    if ($relative -notmatch '(?i)\.(cs|csproj|ps1|md|xml|json|yml|yaml|config|props|targets|txt|toml|ini)$') { continue }
+    if ($relative -notmatch '(?i)\.(cs|java|gradle|properties|csproj|ps1|md|xml|json|yml|yaml|config|props|targets|txt|toml|ini)$') { continue }
     $lineNumber = 0
     foreach ($line in Get-Content -LiteralPath $path) {
         $lineNumber++

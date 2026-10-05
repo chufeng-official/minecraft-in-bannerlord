@@ -10,6 +10,8 @@
     <GameBin>$(GameDirectory)\bin\Win64_Shipping_Client</GameBin>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="System.Runtime.Serialization" />
+    <Compile Include="../Bridge.Protocol/*.cs" Link="Bridge/%(Filename)%(Extension)" />
     <Reference Include="TaleWorlds.Library"><HintPath>$(GameBin)\TaleWorlds.Library.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="TaleWorlds.Core"><HintPath>$(GameBin)\TaleWorlds.Core.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="TaleWorlds.DotNet"><HintPath>$(GameBin)\TaleWorlds.DotNet.dll</HintPath><Private>false</Private></Reference>

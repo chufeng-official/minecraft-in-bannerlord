@@ -1,0 +1,45 @@
+plugins {
+    id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+version = project.mod_version
+group = 'dev.bannerlordblocks'
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 25
+    options.encoding = 'UTF-8'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
+    withSourcesJar()
+}
+
+def modVersion = project.version.toString()
+processResources {
+    inputs.property 'version', modVersion
+    filesMatching('fabric.mod.json') { expand version: modVersion }
+}
+
+jar {
+    from('../LICENSE') { rename { 'LICENSE_bannerlord_minecraft_bridge' } }
+}
+
+tasks.register('bridgeCheck', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.bannerlordblocks.BridgeChecks'
+    args = [layout.projectDirectory.dir('../artifacts/bridge-fixtures').asFile.absolutePath]
+}
+
+check.dependsOn bridgeCheck
+
+// Tests are executed by the explicit standalone bridgeCheck runner, not JUnit discovery.
+test { failOnNoDiscoveredTests = false }

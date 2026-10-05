@@ -7,8 +7,8 @@ blocks to *Mount & Blade II: Bannerlord* custom battles. It is the M0/M1 milesto
 [`TECHNICAL_PLAN.md`](TECHNICAL_PLAN.md): prove that the host can carry dynamic blocks
 before any Minecraft integration.
 
-This repository contains source only. It is **not** a Minecraft port, has no network
-bridge, and does not modify vanilla game files or user saves.
+This repository contains source only. It is **not** a Minecraft port. An optional M2
+loopback mock bridge is available; it does not modify vanilla game files or user saves.
 
 ## Status
 
@@ -20,6 +20,18 @@ Confirmed by local testing: module load, dynamic display, player/projectile coll
 selection and deletion, exit cleanup, riding/AI behavior, and a no-physics placement
 preview. Not claimed: large-scale performance, dynamic navigation, arbitrary vanilla-surface
 building, campaign persistence, or Minecraft integration.
+
+M2 now has a mock authority service, snapshot/delta synchronization and automatic
+reconnection. Core in-game acceptance covers placement/deletion/clear, scene re-entry,
+disconnect protection, service restart and snapshot recovery, resumed operations and cleanup.
+Untested failure paths and large-scale performance remain unclaimed.
+M1 offline mode remains the default. See [docs/M2.md](docs/M2.md) for setup, limits and acceptance tests.
+
+M3 has a Minecraft 26.3/Fabric stone-authority prototype using ServerLevel.
+Real-world bidirectional synchronization, host deletion and both runtimes' scene cleanup
+and recovery after normal MC shutdown/re-entry are verified. Inventory is not integrated,
+and nonempty reconnect/crash recovery remain untested, so M3 is not complete.
+See [docs/M3.md](docs/M3.md).
 
 ## Features
 
@@ -95,6 +107,7 @@ Engine-independent tests run without the game:
 
 ```powershell
 dotnet run --project tests/Diagnostics/Diagnostics.csproj -c Release
+dotnet run --project tests/Bridge/Bridge.csproj -c Release
 pwsh -File tools/AuditSource.ps1
 ```
 

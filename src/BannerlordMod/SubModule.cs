@@ -9,7 +9,7 @@ namespace BannerlordBlocks
         protected override void OnSubModuleLoad()
         {
             base.OnSubModuleLoad();
-            Log.Write("Submodule loaded; prototype revision 9");
+            Log.Write("Submodule loaded; prototype revision 10 (optional M2 bridge)");
         }
 
         public override void OnMissionBehaviorInitialize(Mission mission)

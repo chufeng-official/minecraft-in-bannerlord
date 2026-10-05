@@ -6,6 +6,10 @@ artifacts/
 .vs/
 .idea/
 .local/
+**/.gradle/
+minecraft/build/
+minecraft/run/
+minecraft/logs/
 *.local.json
 *.local.props
 *.log

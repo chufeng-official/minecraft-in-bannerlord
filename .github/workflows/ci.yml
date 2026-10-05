@@ -33,6 +33,10 @@ jobs:
         run: |
           dotnet run --project tests/Diagnostics/Diagnostics.csproj -c Release
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet run --project tests/Bridge/Bridge.csproj -c Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet build src/MockBridge/MockBridge.csproj -c Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 # Proprietary game assemblies are never uploaded. Full mod compilation and
 # gameplay checks require a contributor's own licensed installation.

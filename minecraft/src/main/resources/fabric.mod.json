@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "bannerlord_bridge",
+  "version": "${version}",
+  "name": "Bannerlord Minecraft Bridge",
+  "description": "Opt-in loopback stone authority in an isolated bridge dimension. Experimental M3 prototype.",
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["dev.bannerlordblocks.BannerlordBridgeMod"]
+  },
+  "depends": {
+    "fabricloader": "0.19.5",
+    "minecraft": "26.3",
+    "java": ">=25",
+    "fabric-api": "0.161.0+26.3"
+  }
+}
