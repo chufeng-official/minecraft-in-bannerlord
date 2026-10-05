@@ -1,0 +1,10 @@
+<Project>
+  <!--
+    Copy this file to GameDirectory.local.props (git-ignored) and set GameDirectory
+    to your local Bannerlord installation root (the folder that contains Modules).
+    The path stays on your machine and is never committed.
+  -->
+  <PropertyGroup>
+    <GameDirectory></GameDirectory>
+  </PropertyGroup>
+</Project>

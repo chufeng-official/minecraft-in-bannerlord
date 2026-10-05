@@ -1,0 +1,38 @@
+name: Source checks
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-checks:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Audit publishable source
+        shell: pwsh
+        run: ./tools/AuditSource.ps1
+      - name: Validate PowerShell syntax
+        shell: pwsh
+        run: |
+          Get-ChildItem tools -Filter *.ps1 | ForEach-Object {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) { throw ($errors | Out-String) }
+          }
+      - name: Run engine-independent tests
+        shell: pwsh
+        run: |
+          dotnet run --project tests/Diagnostics/Diagnostics.csproj -c Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+# Proprietary game assemblies are never uploaded. Full mod compilation and
+# gameplay checks require a contributor's own licensed installation.

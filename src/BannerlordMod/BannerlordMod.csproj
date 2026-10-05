@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Optional machine-local config; git-ignored. Copy GameDirectory.local.props.example. -->
+  <Import Project="GameDirectory.local.props" Condition="Exists('GameDirectory.local.props')" />
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>BannerlordBlocks</AssemblyName>
+    <AutomaticallyUseReferenceAssemblyPackages>false</AutomaticallyUseReferenceAssemblyPackages>
+    <GameDirectory Condition="'$(GameDirectory)' == ''">$(BANNERLORD_GAME_DIR)</GameDirectory>
+    <GameBin>$(GameDirectory)\bin\Win64_Shipping_Client</GameBin>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="TaleWorlds.Library"><HintPath>$(GameBin)\TaleWorlds.Library.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="TaleWorlds.Core"><HintPath>$(GameBin)\TaleWorlds.Core.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="TaleWorlds.DotNet"><HintPath>$(GameBin)\TaleWorlds.DotNet.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="TaleWorlds.Engine"><HintPath>$(GameBin)\TaleWorlds.Engine.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="TaleWorlds.InputSystem"><HintPath>$(GameBin)\TaleWorlds.InputSystem.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="TaleWorlds.MountAndBlade"><HintPath>$(GameBin)\TaleWorlds.MountAndBlade.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+  <!-- Real builds only: IDE design-time builds stay silent. -->
+  <Target Name="ValidateGameReferences" BeforeTargets="CoreCompile" Condition="'$(DesignTimeBuild)' != 'true'">
+    <Error Condition="'$(GameDirectory)' == ''" Text="Set BANNERLORD_GAME_DIR, pass -p:GameDirectory, or copy GameDirectory.local.props.example to GameDirectory.local.props. Game assemblies are not bundled." />
+    <Error Condition="'$(GameDirectory)' != '' and !Exists('$(GameBin)\TaleWorlds.MountAndBlade.dll')" Text="GameDirectory does not contain bin/Win64_Shipping_Client/TaleWorlds.MountAndBlade.dll." />
+  </Target>
+</Project>

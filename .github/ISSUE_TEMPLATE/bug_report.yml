@@ -1,0 +1,22 @@
+name: Bug report
+description: 报告动态方块原型的问题（请先脱敏日志）
+body:
+  - type: input
+    id: version
+    attributes:
+      label: 游戏版本与项目版本
+      description: 填写运行版本及 commit/revision，不要填写个人安装路径。
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 复现步骤、预期与实际结果
+      description: 说明场景、步行或骑乘、按键、是否使用其他模组。
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 脱敏日志或截图
+      description: 仅附最小相关日志；移除用户名、绝对路径、凭据。不要上传存档、游戏 DLL 或原版资源。安全漏洞请按 SECURITY.md 私下报告。

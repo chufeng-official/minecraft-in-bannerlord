@@ -1,0 +1,20 @@
+<Module>
+  <Name value="Dynamic Blocks Prototype" />
+  <Id value="BannerlordBlocks" />
+  <Version value="v0.1.0" />
+  <SingleplayerModule value="true" />
+  <MultiplayerModule value="false" />
+  <DependedModules>
+    <DependedModule Id="Native" DependentVersion="v1.4.8.119303" />
+    <DependedModule Id="SandBoxCore" DependentVersion="v1.4.8.119303" />
+    <DependedModule Id="CustomBattle" DependentVersion="v1.4.8.119303" />
+  </DependedModules>
+  <SubModules>
+    <SubModule>
+      <Name value="BannerlordBlocks" />
+      <DLLName value="BannerlordBlocks.dll" />
+      <SubModuleClassType value="BannerlordBlocks.SubModule" />
+      <Tags><Tag key="DedicatedServerType" value="none" /><Tag key="IsNoRenderModeElement" value="false" /></Tags>
+    </SubModule>
+  </SubModules>
+</Module>
