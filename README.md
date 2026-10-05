@@ -3,12 +3,13 @@
 English | [简体中文](README.zh-CN.md)
 
 A singleplayer proof-of-concept that adds player-built, collidable, cleanly removable
-blocks to *Mount & Blade II: Bannerlord* custom battles. It is the M0/M1 milestone of
-[`TECHNICAL_PLAN.md`](TECHNICAL_PLAN.md): prove that the host can carry dynamic blocks
-before any Minecraft integration.
+blocks to *Mount & Blade II: Bannerlord* custom battles. It now covers M0/M1 host
+validation, M2 mock bridging and M3-A real Minecraft stone authority;
+see [`TECHNICAL_PLAN.md`](TECHNICAL_PLAN.md).
 
-This repository contains source only. It is **not** a Minecraft port. An optional M2
-loopback mock bridge is available; it does not modify vanilla game files or user saves.
+This repository contains source only. It is **not** a full Minecraft port. Offline,
+mock-bridge and real stone-bridge modes are available. Vanilla program files are not
+modified; MC operations are restricted to an explicitly authorized test world, never ordinary saves.
 
 ## Status
 
@@ -19,7 +20,7 @@ was not tested.
 Confirmed by local testing: module load, dynamic display, player/projectile collision,
 selection and deletion, exit cleanup, riding/AI behavior, and a no-physics placement
 preview. Not claimed: large-scale performance, dynamic navigation, arbitrary vanilla-surface
-building, campaign persistence, or Minecraft integration.
+building, campaign persistence, or complete Minecraft gameplay adaptation.
 
 M2 now has a mock authority service, snapshot/delta synchronization and automatic
 reconnection. Core in-game acceptance covers placement/deletion/clear, scene re-entry,
@@ -32,6 +33,9 @@ Real-world bidirectional synchronization, host deletion and both runtimes' scene
 and recovery after normal MC shutdown/re-entry are verified. Inventory is not integrated,
 and nonempty reconnect/crash recovery remain untested, so M3 is not complete.
 See [docs/M3.md](docs/M3.md).
+
+Next proposed work is a minimal MC-authoritative inventory. The MVP scope and effort
+estimate remain proposals, not commitments; see [docs/MVP_ROADMAP.md](docs/MVP_ROADMAP.md).
 
 ## Features
 
@@ -48,7 +52,9 @@ See [docs/M3.md](docs/M3.md).
 - .NET SDK (see `global.json`); game assemblies are used only as local compile references.
 - PowerShell 7 (`pwsh`).
 
-No NuGet packages, Minecraft, Harmony, or Java are required.
+M1 offline mode and the M2 mock service need no Minecraft, Java, Harmony or NuGet packages.
+M3 needs licensed Minecraft Java 26.3, Fabric and Java 25; see [docs/M3.md](docs/M3.md)
+and [docs/M3_TEST.md](docs/M3_TEST.md) for development and installation requirements.
 
 ## Build
 
